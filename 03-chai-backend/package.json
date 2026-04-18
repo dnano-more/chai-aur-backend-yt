@@ -1,0 +1,16 @@
+{
+  "name": "03-chai-backend",
+  "version": "1.0.0",
+  "description": "A professional backend project",
+  "keywords": [
+    "javascript",
+    "backend"
+  ],
+  "license": "ISC",
+  "author": "Dnyaneshwar More",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
