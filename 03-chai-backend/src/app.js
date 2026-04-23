@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import { LIMIT } from "./constants";
+import { DB_NAME, LIMIT } from "./constants.js";
 
 const app = express();
 
@@ -23,5 +23,13 @@ app.use(cookieParser()); // cookie pe crud operations ya koi kaam karne ke liye
 app.use(express.static("public")); // static files - serve karne ke liye (jaise images, css, js files, etc.) 
 // public folder ke andar rakhenge static files ko taaki wo easily accessible ho sake aur unko serve kar sake express server
 
+
+// routes import
+import userRouter from "./routes/user.routes.js";
+
+
+// routes declaration 
+app.use("/api/v1/users", userRouter);  // /users → base route, userRouter → us route ke andar jo bhi routes define karenge wo is base route ke andar aayenge, jaise /users/register, /users/login, etc.
+// http://localhost:8000/api/v1/users/register
 
 export { app };
