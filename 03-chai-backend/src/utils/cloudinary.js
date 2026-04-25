@@ -17,7 +17,7 @@ const initCloudinary = () => {
     secure: true,
   });
 
-  console.log("Cloudinary configured with:", process.env.CLOUDINARY_CLOUD_NAME);
+  // console.log("Cloudinary configured with:", process.env.CLOUDINARY_CLOUD_NAME);
 };
 
 const uploadOnCloudinary = async (localFilePath) => {
@@ -31,6 +31,7 @@ const uploadOnCloudinary = async (localFilePath) => {
 
     // file uploaded successfull
     console.log("file is uploaded on cloudinary", response.url);
+    fs.unlinkSync(localFilePath); // ye locally saved temporary file ko remove karega
 
     return response;
   } catch (error) {
