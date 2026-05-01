@@ -1,7 +1,10 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import {
+  deleteFromCloudinary,
+  uploadOnCloudinary,
+} from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 
@@ -50,7 +53,7 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 
   const existedUser = await User.findOne({
-    $or: [{ userName: userName.toLowerCase() }, { email }],
+    $or: [{ userName: userName.toLowerCase() }, { email: email.toLowerCase() }],
   });
 
   if (existedUser) {
@@ -86,7 +89,7 @@ const registerUser = asyncHandler(async (req, res) => {
     fullName,
     avatar: avatar.url,
     coverImage: coverImage?.url || "",
-    email,
+    email: email.toLowerCase(),
     password,
     userName: userName.toLowerCase(),
   });
@@ -116,7 +119,7 @@ const loginUser = asyncHandler(async (req, res) => {
   console.log(email);
 
   if (!userName && !email) {
-    throw new ApiError(400, "userName or email required!");
+    throw new ApiError(400, "userName and email required!");
   }
 
   // Here is an alternative of above code based on logic discussed in video:
@@ -126,7 +129,10 @@ const loginUser = asyncHandler(async (req, res) => {
   // }
 
   const user = await User.findOne({
-    $or: [{ userName }, { email }],
+    $or: [
+      { userName: userName?.toLowerCase() },
+      { email: email?.toLowerCase() },
+    ],
   });
 
   if (!user) {
@@ -223,22 +229,22 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       secure: true,
     };
 
-    const { accessToken, newRefeshToken } =
+    const { accessToken, refreshToken: newRefreshToken } =
       await generateAccessAndRefereshTokens(user._id);
 
     return res
       .status(200)
       .cookie("accessToken", accessToken, options)
-      .cookie("refreshToken", newRefeshToken, options)
+      .cookie("refreshToken", newRefreshToken, options)
       .json(
-        new ApiError(
+        new ApiResponse(
           200,
-          { accessToken, refreshToken: newRefeshToken },
+          { accessToken, refreshToken: newRefreshToken },
           "Access token refreshed",
         ),
       );
   } catch (error) {
-    throw new ApiError(401, error?.message || "Invalid refreah token");
+    throw new ApiError(401, error?.message || "Invalid refresh token");
   }
 });
 
@@ -246,6 +252,10 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
   const { oldPassword, newPassword } = req.body;
 
   const user = await User.findById(req.user?._id);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
   const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
 
   if (!isPasswordCorrect) {
@@ -263,7 +273,7 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
 const getCurrentUser = asyncHandler(async (req, res) => {
   return res
     .status(200)
-    .json(200, req.user, "Current user fetched successfully");
+    .json(new ApiResponse(200, req.user, "Current user fetched successfully"));
 });
 
 const updateAccountDetails = asyncHandler(async (req, res) => {
@@ -273,7 +283,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
     throw new ApiError(400, "All fields are required");
   }
 
-  const user = User.findByIdAndUpdate(
+  const user = await User.findByIdAndUpdate(
     req.user?._id,
     {
       $set: {
@@ -290,15 +300,18 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 });
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
-  const avtarLocalPath = req.file?.path;
+  const avatarLocalPath = req.file?.path;
 
-  if (!avtarLocalPath) {
+  if (!avatarLocalPath) {
     throw new ApiError(400, "Avatar file is missing");
   }
 
-  const avatar = await uploadOnCloudinary(avtarLocalPath);
+  // getting old user first
+  const existingUser = await User.findById(req.user?._id);
 
-  if (!avatar.url) {
+  const uploadedAvatar = await uploadOnCloudinary(avatarLocalPath);
+
+  if (!uploadedAvatar?.url) {
     throw new ApiError(400, "Error while uploading on avatar");
   }
 
@@ -307,10 +320,16 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     {
       $set: {
         avatar: avatar.url,
+        public_id: uploadedAvatar.public_id,
       },
     },
     { new: true },
   ).select("-password");
+
+  // delete old avatar (after successful update)
+  if (existingUser?.public_id) {
+    await deleteFromCloudinary(existingUser.public_id);
+  }
 
   return res
     .status(200)
@@ -354,5 +373,5 @@ export {
   getCurrentUser,
   updateAccountDetails,
   updateUserAvatar,
-  updateUserCoverImage
+  updateUserCoverImage,
 };
